@@ -1,19 +1,24 @@
-# berry_et_al_nature.R
+# kaforou_et_al_plosm.R
 # Auth: Umar Niazi u.niazi@imperial.ac.uk
-# Date: 23/04/2015
-# Desc: analysis of berry et. al. dataset to select biomarkers of interest
+# Date: 25/04/2015
+# Desc: analysis of kaforou dataset to select biomarkers of interest
 
 source('tb_biomarker_ma_header.R')
 
 ## data loading
 # load the data, clean and create factors
-# data was loaded first time using getGEO('GSE19491', GSEMatrix = T, destdir = 'Data_external/')
+# data was loaded first time using gse = getGEO('GSE37250', GSEMatrix = T, destdir = 'Data_external/')
 # object was saved and now using that
 oExp = f_LoadObject(file.choose())
-oExp = oExp$GSE19491_series_matrix.txt.gz
+oExp = oExp$GSE37250_series_matrix.txt.gz
 
 # print samples
-as.data.frame(table(oExp$source_name_ch1))
+temp = pData(oExp)
+as.data.frame(table(temp$source_name_ch1))
+as.data.frame(table(temp$characteristics_ch1))
+as.data.frame(table(temp$characteristics_ch1.1))
+as.data.frame(table(temp$characteristics_ch1.2))
+as.data.frame(table(temp$characteristics_ch1.3))
 
 ## data normalization
 # normalize and log2 transform the data using lumi
@@ -34,25 +39,25 @@ plot.new()
 legend('center', legend = unique(fSamples), fill=col.p[as.numeric(unique(fSamples))])
 p.old = par(mfrow=c(2,2))
 plot(pr.out$x[,1:2], col=col, pch=19, xlab='Z1', ylab='Z2',
-     main='PCA comp 1 and 2 GSE19491, not normalized')
+     main='PCA comp 1 and 2 GSE37250, not normalized')
 plot(pr.out$x[,c(1,3)], col=col, pch=19, xlab='Z1', ylab='Z3',
-     main='PCA comp 1 and 3 GSE19491, not normalized')
+     main='PCA comp 1 and 3 GSE37250, not normalized')
 plot(pr.out$x[,c(2,3)], col=col, pch=19, xlab='Z2', ylab='Z3',
-     main='PCA comp 2 and 3 GSE19491, not normalized')
+     main='PCA comp 2 and 3 GSE37250, not normalized')
 par(p.old)
 f_Plot3DPCA(pr.out$x[,1:3], col, pch=19, xlab='Z1', ylab='Z2', zlab='Z3', 
-            main='Plot of first 3 components GSE19491 - not normalized')
+            main='Plot of first 3 components GSE37250 - not normalized')
 par(p.old)
 # remove the outlier groups from the data
 # these can be seen on the pc2 and pc3 plots
 m = pr.out$x[,1:3]
 m = data.frame(m, fSamples)
-i = which(m$PC2 < -100 & m$PC3 > 50)
-i = c(i, which(m$PC2 < 50 & m$PC3 < -100))
+i = which(m$PC1 < -250 & m$PC2 > -50)
+i = unique(c(i, which(m$PC1 < -250 & m$PC3 > -50)))
 c = col
 c[i] = 'black'
 plot(pr.out$x[,c(2,3)], col=c, pch=19, xlab='Z2', ylab='Z3',
-main='outlier groups')
+     main='outlier groups')
 # remove the outliers
 oExp.lumi = oExp.lumi[,-i]
 
@@ -74,47 +79,27 @@ plot.new()
 legend('center', legend = unique(fSamples), fill=col.p[as.numeric(unique(fSamples))])
 par(mfrow=c(2,2))
 plot(pr.out$x[,1:2], col=col, pch=19, xlab='Z1', ylab='Z2',
-     main='PCA comp 1 and 2 GSE19491, normalized')
+     main='PCA comp 1 and 2 GSE37250, normalized')
 plot(pr.out$x[,c(1,3)], col=col, pch=19, xlab='Z1', ylab='Z3',
-     main='PCA comp 1 and 3 GSE19491, normalized')
+     main='PCA comp 1 and 3 GSE37250, normalized')
 plot(pr.out$x[,c(2,3)], col=col, pch=19, xlab='Z2', ylab='Z3',
-     main='PCA comp 2 and 3 GSE19491, normalized')
+     main='PCA comp 2 and 3 GSE37250, normalized')
 par(p.old)
 f_Plot3DPCA(pr.out$x[,1:3], col, pch=19, xlab='Z1', ylab='Z2', zlab='Z3', 
-            main='Plot of first 3 components GSE19491 - normalized')
+            main='Plot of first 3 components GSE37250 - normalized')
 par(p.old)
 
 ## create groups for analysis
 # plot pca on the class separation factor i.e. title
 title = as.character(oExp$title)
-long = grep('^\\w+?long', title, perl=T)
-sep = grep('^\\w+?_sep_', title, perl=T)
-still = grep('Still', x = title)
-asle = grep ('ASLE', x=title)
-staph = grep('Staph', x=title)
-strep = grep('Strep', x=title)
-psle = grep('PSLE', x=title)
-hcons = grep('-H-', x=title)
-ltb = grep('LTB_.+', x = title)
-ptb = grep('PTB_.+', x = title)
-con = grep('CON_.+', x = title)
+ptb = grep('active tuberculosis', x = title)
 fGroups = rep(NA, length=length(title))
-fGroups[ltb] = 'LTB'
 fGroups[ptb] = 'PTB'
-fGroups[con] = 'CON'
-fGroups[still] = 'STILL'
-fGroups[asle] = 'ASLE'
-fGroups[staph] = 'STAPH'
-fGroups[strep] = 'STREP'
-fGroups[psle] ='PSLE'
-fGroups[hcons] = 'HCON'
-fGroups[long] = 'LONG'
-fGroups[sep] = 'SEP'
+fGroups[-ptb] = 'Others'
 fGroups = factor(fGroups)
 # create a second factor with only 2 levels
 # keep ptb at 1 for downstream predictions
 fGroups.2 = as.character(fGroups)
-fGroups.2[fGroups.2 != 'PTB'] = 'Others'
 fGroups.2 = factor(fGroups.2, levels = c('Others', 'PTB'))
 
 # plot pca on these classes 
@@ -129,14 +114,14 @@ legend('center', legend = unique(fSamples), col=col.p[as.numeric(unique(fSamples
        lwd=2)
 par(mfrow=c(2,2))
 plot(pr.out$x[,1:2], col=col, pch=pch, xlab='Z1', ylab='Z2', lwd=2,
-     main='PCA comp 1 and 2 GSE19491, normalized')
+     main='PCA comp 1 and 2 GSE37250, normalized')
 plot(pr.out$x[,c(1,3)], col=col, pch=pch, xlab='Z1', ylab='Z3', lwd=2,
-     main='PCA comp 1 and 3 GSE19491, normalized')
+     main='PCA comp 1 and 3 GSE37250, normalized')
 plot(pr.out$x[,c(2,3)], col=col, pch=pch, xlab='Z2', ylab='Z3', lwd=2,
-     main='PCA comp 2 and 3 GSE19491, normalized')
+     main='PCA comp 2 and 3 GSE37250, normalized')
 par(p.old)
 f_Plot3DPCA(pr.out$x[,1:3], col, pch=pch, xlab='Z1', ylab='Z2', zlab='Z3', lwd=2,
-            main='Plot of first 3 components GSE19491 - normalized')
+            main='Plot of first 3 components GSE37250 - kaforou, normalized')
 par(p.old)
 
 ### analysis
@@ -198,7 +183,7 @@ rf.fit.1 = randomForest(fGroups.2 ~., data=dfData, importance = TRUE)
 
 # save the results to save time for next time
 dir.create('Objects', showWarnings = F)
-save(rf.fit.1, file='Objects/berry.rf.fit.1.rds')
+save(rf.fit.1, file='Objects/kaforou.rf.fit.1.rds')
 
 # variables of importance
 varImpPlot(rf.fit.1)
@@ -274,7 +259,12 @@ rm(dfData)
 ## stop and decide
 ## if we like the variable count here, then its fine, or else go back to TAG 1 and select more variables
 # remove the variable of choice after testing
-i = which(cvTopGenes == 'ILMN_1676448')
+x = tapply(df[,'MeanDecreaseAccuracy'], f, mean)
+sort(x)
+summary(x)
+i = which(x <33)
+n = names(x)[i]
+i = which(cvTopGenes %in% n)
 cvTopGenes = cvTopGenes[-i]
 
 ### cross validation with ROC
@@ -341,7 +331,6 @@ abline(0, 1, lty=2)
 dfAnnot = fData(oExp)[cvTopGenes,c('Symbol', 'ID', 'Definition')]
 # save the results
 dir.create('Data_results', showWarnings = F)
-write.csv(dfAnnot, file='Data_results/berry.var.importance.csv')
+write.csv(dfAnnot, file='Data_results/kaforou.var.importance.csv')
 
 ### graph analysis section
-

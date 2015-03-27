@@ -12,6 +12,7 @@ library(lumi)
 library(MASS)
 library(randomForest)
 library(tree)
+library(ROCR)
 source('~/Dropbox/Home/Data/R/My_Libraries/NGS_functions.R')
 
 
