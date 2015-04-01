@@ -25,7 +25,5 @@ by analysing the correlation matrix.
 # kaforou_et_al_plosm.R
 Analysis of 'GSE37250'. The analysis protocol is similar to the previous berry script.
 
-NOTE: test variables predicted by one script in the data from the other data set, to see how it performs on the 
-new data set.
-
+NOTE: Use markers commong b/w analysis by long and umar
 
