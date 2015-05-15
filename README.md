@@ -25,5 +25,21 @@ by analysing the correlation matrix.
 # kaforou_et_al_plosm.R
 Analysis of 'GSE37250'. The analysis protocol is similar to the previous berry script.
 
-NOTE: Use markers commong b/w analysis by long and umar
+# long_all_data_test.R
+Similar to next script, use second one its latest.
+
+# long_all_data_test_02.R
+Analysis of the combined data, provided by long. The annotation for the probes is loaded from Geo Database, while the 
+data from long and sample annotation are loaded separately. We remove sarcoidosis and non-active sarcoids. The factors are relevelled
+so that ATB is 1 and OD is 0. PCA on the samples is performed and some outliers are removed. Data is z-scale standardized across
+the samples before further analysis, and infinite and na values are removed. The genes are subset into groups based on the 
+coefficient of variation which shows how precise a value is. Genes are further subset, based on if they are differentially expressed
+between the 2 conditions on a t.test and a wilcoxon test. Data is split into training and test set (20%). Random Forest is performed
+on the training set to select a set of genes that may be important, based on the variable importance distribution. Using that smaller
+set of genes, a nested random forest with equal proportions of both classes, is performed to estimate the importance score, its mean
+and standard deviation and coef of variation. Genes with lowest coef of variation are selected. Further genes are removed based
+on the colinearity. Another nested variable subset selection step with data split into training and test sets is peformed and 
+distribution of test error rates for each number of variables is calculated. Smallest number of variables model with lowest or
+more precise error rate is selected. Using those variables a nested 10 fold cross validation is performed on the training data
+and a test/training error rate is also calculated for the test data. Summary is plotted as a ROC curve and boxplots.
 
