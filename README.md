@@ -43,3 +43,6 @@ distribution of test error rates for each number of variables is calculated. Sma
 more precise error rate is selected. Using those variables a nested 10 fold cross validation is performed on the training data
 and a test/training error rate is also calculated for the test data. Summary is plotted as a ROC curve and boxplots.
 
+# long_all_data_clusters.R
+Making clusters of related genes and pathways using the expression data saved as a list from the previous script. Choose various 
+types of classes (groups) to make clusters. Not a fixed script, needs adjustment according to the question.
