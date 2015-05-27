@@ -46,3 +46,12 @@ and a test/training error rate is also calculated for the test data. Summary is 
 # long_all_data_clusters.R
 Making clusters of related genes and pathways using the expression data saved as a list from the previous script. Choose various 
 types of classes (groups) to make clusters. Not a fixed script, needs adjustment according to the question.
+
+# kaforou_et_al_nejm.R
+Very similar to previous analysis, however we use the dataset GSE39941, from the transcriptomics study on TB in children with and
+without HIV. The PCA plot suggests a few outliers which are removed before normalization using lumi. The data is split into 2 groups
+based on all other conditions (OD) and active tb (ATB). The data is split into training and test sets randomly with 20% of data 
+as test set. Using the markers selected earlier (in previous scripts) - they are tested using 10 fold cross validation and training
+vs test error rates and ROC curves are plotted. The expression values for these genes are also plotted. A pathway analysis is also
+performed i.e. clustering based on shared pathways and expression values of the selected 2500 or so markers. The pathway clustering
+is very similar to long_all_data_clusters.R and various plots are produced to for significant modules.
