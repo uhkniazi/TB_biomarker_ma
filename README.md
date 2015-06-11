@@ -55,3 +55,15 @@ as test set. Using the markers selected earlier (in previous scripts) - they are
 vs test error rates and ROC curves are plotted. The expression values for these genes are also plotted. A pathway analysis is also
 performed i.e. clustering based on shared pathways and expression values of the selected 2500 or so markers. The pathway clustering
 is very similar to long_all_data_clusters.R and various plots are produced to for significant modules.
+
+# long_all_data_test_03.R
+Used a slightly different approach to last scripts. Most of the analysis is the same as long_all_data_test_02.R, however with some
+small changes.  
+- the sarcoids were not removed.  
+- The data was not z-scaled for samples  
+- Coefficient of variation was not used for initial filtering before t and wilcoxon tests.  
+- 30% of data was selected for validation set.  
+- Colinear genes are not removed, as they are removed at the subset selection step.  
+- Using the CCrossValidation.LDA class for nested cross validation and ROC curves.  
+- Added some pathway analysis at the end with LTBI and ATB comparisons.  
+
