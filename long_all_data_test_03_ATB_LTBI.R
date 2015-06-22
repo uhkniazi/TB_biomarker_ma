@@ -180,162 +180,51 @@ cvTopGenes = rownames(dfImportance.ATB)[f]
 # subset the data based on these selected genes from training dataset
 dfData = as.data.frame(mDat.sub.train)
 dfData = dfData[,colnames(dfData) %in% cvTopGenes]
-dfData$fGroups = dfSamples.train$fGroups.2
+#dfData$fGroups = dfSamples.train$fGroups.2
 
-### Further variable classification check
-### using CV and ROC
-dfData.full = dfData
-iBoot = 100
-
-## as the 2 class proportions are not equal, fit random forest multiple times on random samples
-## containing equal proportions of both classes and check variable importance measures
-# fit random forests multiple times
-# store results 
-lVarImp = vector('list', iBoot)
-for (i in 1:iBoot) {
-  # get indices of the particular factors in data table
-  ind.o = which(dfData.full$fGroups == 'OD')
-  ind.p = which(dfData.full$fGroups == 'ATB')
-  # take sample of equal in size from group OD and ATB
-  sam.size = min(length(ind.p), length(ind.o))
-  ind.o.s = sample(ind.o, size = sam.size, replace = F)
-  # sample of ATB groups, i.e. take everything as it is smaller group
-  ind.p.s = sample(ind.p, size=sam.size, replace=F)
-  # join the sample indices together
-  ind = sample(c(ind.o.s, ind.p.s), replace=F)
-  # take sample from the full dataset
-  dfData = dfData.full[ind,]
-  # fit model
-  fit.rf = randomForest(fGroups ~., data=dfData, importance = TRUE, ntree = 500)
-  # get variables importance
-  df = importance(fit.rf)
-  df = df[order(df[,'MeanDecreaseAccuracy'], decreasing = T),]
-  # put in list
-  lVarImp[[i]] = df
-} # for
-
-## put data for each boot of each variable together in a dataframe
-df = NULL
-for (i in 1:iBoot) df = rbind(df, lVarImp[[i]])
-# convert rownames i.e. gene names to factors
-f = as.factor(rownames(df))
-# calculate mean and sd for each gene
-ivMean = tapply(df[,'MeanDecreaseAccuracy'], f, mean)
-ivSD = tapply(df[,'MeanDecreaseAccuracy'], f, sd)
-df = as.data.frame(df)
-df$Symbol = rownames(df)
-dfRF.boot = df
-# boxplots 
-par(mar=c(6,4,3,2)+0.1)
-boxplot(df$MeanDecreaseAccuracy ~ df$Symbol, las=2, cex.axis=0.4)
-# calculate coefficient of variation
-cv = ivSD/abs(ivMean)
-# split data into groups based on cv
-g = cut(cv, breaks = quantile(cv, 0:10/10), include.lowest = T)
-coplot(ivSD ~ ivMean | g)
-gl = cut(cv, breaks = quantile(cv, 0:10/10), include.lowest = T, labels = 0:9)
-rm(dfData)
-rm(dfData.full)
-par(p.old)
-dfRF.boot.stats = data.frame(ivMean, ivSD, cv, groups=g, group.lab=gl)
-## Decide on a cutoff here
-## based on coefficient of variation
+oVar.r = CVariableSelection.RandomForest(dfData, dfSamples.train$fGroups.2)
+plot.var.selection(oVar.r)
+dfRF = CVariableSelection.RandomForest.getVariables(oVar.r)
+# select top 30 genes
 cvTopGenes.step.1 = cvTopGenes
-f = cv[gl %in% c(0, 1)]
-cvTopGenes = names(f)
+cvTopGenes = rownames(dfRF)[1:30]
 
-## check for the miminum sized model using test and training sets
-## use variable selection method
-iBoot = 1000
-mTrain = matrix(NA, nrow = length(cvTopGenes), ncol = iBoot)
-mTest = matrix(NA, nrow = length(cvTopGenes), ncol = iBoot)
-
-for(o in 1:iBoot){
-  dfData.train = as.data.frame(mDat.sub.train)
-  dfData.train = dfData.train[,colnames(dfData.train) %in% cvTopGenes]
-  dfData.train$fGroups = dfSamples.train$fGroups.2
-  # create a test set on a percentage the data
-  test = sample(1:nrow(dfData.train), size =nrow(dfData.train) * 0.30, replace = F)
-  dfData.test = dfData.train[test,]
-  dfData.train = dfData.train[-test,]
-  
-  # fit model
-  reg = regsubsets(fGroups ~ ., data=dfData.train, nvmax = length(cvTopGenes), method='exhaustive')
-  # test for validation errors in the test set
-  ivCV.train = rep(NA, length=length(cvTopGenes))
-  ivCV.test = rep(NA, length=length(cvTopGenes))
-  for (i in 1:length(cvTopGenes)){
-    # get the genes in each subset
-    n = names(coef(reg, i))[-1]
-    n = c(n, 'fGroups')
-    dfDat.train = dfData.train[,colnames(dfData.train) %in% n]
-    dfDat.test = dfData.test[,colnames(dfData.test) %in% n]
-    # fit the lda model on training dataset
-    fit.lda = lda(fGroups ~ ., data=dfDat.train)
-    # test error rate on test dataset
-    p = predict(fit.lda, newdata=dfDat.test)
-    # calculate test error 
-    ivCV.test[i] = mean(p$class != dfDat.test$fGroups)  
-    # calculate training error
-    p = predict(fit.lda, newdata=dfDat.train)
-    # calculate error
-    ivCV.train[i] = mean(p$class != dfDat.train$fGroups)  
-  }
-  mTrain[,o] = ivCV.train
-  mTest[,o] = ivCV.test
-  print(o)
-}
-# make plots
-mTrain = t(mTrain)
-par(mfrow=c(1,2), mar=c(4,3,1,1))
-boxplot(mTrain, main='Training Set', xlab='No. of variables', ylab='Error rate', ylim=c(0.1, 0.23))
-lines(1:ncol(mTrain), colMeans(mTrain), col='red', lwd=2)
-
-mTest = t(mTest)
-boxplot(mTest, main='Test Set', xlab='No. of variables', ylab='Error rate', ylim=c(0.1, 0.23))
-lines(1:ncol(mTest), colMeans(mTest), col='red', lwd=2)
-y = colMeans(mTest)
-abline(h = min(y), lty=2)
-# calculate standard error for minimum mean test error column
-i = which.min(y)
-x = mTest[,i]
-se = sd(x)/sqrt(length(x))
-abline(h = mean(x)+se+se, lty=2, col=2)
-abline(h = mean(x)-se-se, lty=2, col=2)
-abline(h = mean(x)+sd(x), lty=2, col='blue')
-abline(h = mean(x)-sd(x), lty=2, col='blue')
-
-par(p.old)
-# plot together
-tr = colMeans(mTrain)
-te = colMeans(mTest)
-
-m = cbind(tr, te)
-matplot(1:nrow(m), m, type='b', pch=20, lty = 1, lwd=2, col=1:2, xaxt='n')
-legend('bottomleft', legend = colnames(m), fill=1:2)
-axis(1, at = 1:nrow(m), las=2)
-
-## choose the best model after refitting on the full training data set
-## choose which model is the best?
-i = 2
-# refit subset using i number of genes on all data
-rm(list = c('dfData.train', 'dfData.test'))
+# subset selection
 dfData = as.data.frame(mDat.sub.train)
 dfData = dfData[,colnames(dfData) %in% cvTopGenes]
-dfData$fGroups = dfSamples.train$fGroups.2
-reg = regsubsets(fGroups ~ ., data=dfData, nvmax = length(cvTopGenes), method='exhaustive')
 
-# choose these variables
-cvTopGenes.step.3 = cvTopGenes
-cvTopGenes = names(coef(reg, i))[-1]
-rm(list = c('dfData', 'dfDat.test', 'dfDat.train'))
+oVar.sub = CVariableSelection.ReduceModel(dfData, dfSamples.train$fGroups.2)
+plot.var.selection(oVar.sub)
+par(mfrow=c(2,2))
+# try models of various sizes with CV
+for (i in 3:6){
+  cvTopGenes.sub = CVariableSelection.ReduceModel.getMinModel(oVar.sub, i)
+  dfData.train = as.data.frame(mDat.sub.train)
+  dfData.train = dfData.train[,colnames(dfData.train) %in% cvTopGenes.sub]
+  
+  dfData.test = as.data.frame(mDat.sub.test)
+  dfData.test = dfData.test[,colnames(dfData.test) %in% cvTopGenes.sub]
+  
+  oCV = CCrossValidation.LDA(test.dat = dfData.test, train.dat = dfData.train, test.groups = dfSamples.test$fGroups.2,
+                             train.groups = dfSamples.train$fGroups.2, level.predict = 'ATB', boot.num = 500)
+  
+  plot.cv.performance(oCV)
+}
 
-######### cross validation with ROC
+## print the model variables
+for (i in 3:6){
+  cvTopGenes.sub = CVariableSelection.ReduceModel.getMinModel(oVar.sub, i)
+  print(paste('Variable Count', i))
+  print(dfAnnotation[cvTopGenes.sub,])
+}
+
+cvTopGenes.sub = 'ILMN_1756953'
+par(p.old)
 dfData.train = as.data.frame(mDat.sub.train)
-dfData.train = dfData.train[,colnames(dfData.train) %in% cvTopGenes]
+dfData.train = data.frame(dfData.train[,colnames(dfData.train) %in% cvTopGenes.sub])
 
 dfData.test = as.data.frame(mDat.sub.test)
-dfData.test = dfData.test[,colnames(dfData.test) %in% cvTopGenes]
+dfData.test = data.frame(dfData.test[,colnames(dfData.test) %in% cvTopGenes.sub])
 
 oCV = CCrossValidation.LDA(test.dat = dfData.test, train.dat = dfData.train, test.groups = dfSamples.test$fGroups.2,
                            train.groups = dfSamples.train$fGroups.2, level.predict = 'ATB', boot.num = 500)
@@ -353,74 +242,171 @@ x$f = dfSamples.test$fGroups.2
 boxplot(values ~ f+ind, data=x, las=2, par=par(mar=c(8, 4, 2, 2)+0.1), main='Test Data')
 
 dfAnnotation[cvTopGenes,]
+par(p.old)
+
+# ### Further variable classification check
+# ### using CV and ROC
+# dfData.full = dfData
+# iBoot = 100
+# 
+# ## as the 2 class proportions are not equal, fit random forest multiple times on random samples
+# ## containing equal proportions of both classes and check variable importance measures
+# # fit random forests multiple times
+# # store results 
+# lVarImp = vector('list', iBoot)
+# for (i in 1:iBoot) {
+#   # get indices of the particular factors in data table
+#   ind.o = which(dfData.full$fGroups == 'OD')
+#   ind.p = which(dfData.full$fGroups == 'ATB')
+#   # take sample of equal in size from group OD and ATB
+#   sam.size = min(length(ind.p), length(ind.o))
+#   ind.o.s = sample(ind.o, size = sam.size, replace = F)
+#   # sample of ATB groups, i.e. take everything as it is smaller group
+#   ind.p.s = sample(ind.p, size=sam.size, replace=F)
+#   # join the sample indices together
+#   ind = sample(c(ind.o.s, ind.p.s), replace=F)
+#   # take sample from the full dataset
+#   dfData = dfData.full[ind,]
+#   # fit model
+#   fit.rf = randomForest(fGroups ~., data=dfData, importance = TRUE, ntree = 500)
+#   # get variables importance
+#   df = importance(fit.rf)
+#   df = df[order(df[,'MeanDecreaseAccuracy'], decreasing = T),]
+#   # put in list
+#   lVarImp[[i]] = df
+# } # for
+# 
+# ## put data for each boot of each variable together in a dataframe
+# df = NULL
+# for (i in 1:iBoot) df = rbind(df, lVarImp[[i]])
+# # convert rownames i.e. gene names to factors
+# f = as.factor(rownames(df))
+# # calculate mean and sd for each gene
+# ivMean = tapply(df[,'MeanDecreaseAccuracy'], f, mean)
+# ivSD = tapply(df[,'MeanDecreaseAccuracy'], f, sd)
+# df = as.data.frame(df)
+# df$Symbol = rownames(df)
+# dfRF.boot = df
+# # boxplots 
+# par(mar=c(6,4,3,2)+0.1)
+# boxplot(df$MeanDecreaseAccuracy ~ df$Symbol, las=2, cex.axis=0.4)
+# # calculate coefficient of variation
+# cv = ivSD/abs(ivMean)
+# # split data into groups based on cv
+# g = cut(cv, breaks = quantile(cv, 0:10/10), include.lowest = T)
+# coplot(ivSD ~ ivMean | g)
+# gl = cut(cv, breaks = quantile(cv, 0:10/10), include.lowest = T, labels = 0:9)
+# rm(dfData)
+# rm(dfData.full)
+# par(p.old)
+
+# # dfRF.boot.stats = data.frame(ivMean, ivSD, cv, groups=g, group.lab=gl)
+# # ## Decide on a cutoff here
+# # ## based on coefficient of variation
+# # cvTopGenes.step.1 = cvTopGenes
+# # f = cv[gl %in% c(0, 1, 2, 3, 4)]
+# # cvTopGenes = names(f)
+# 
+# 
+# 
+# 
+# ## check for the miminum sized model using test and training sets
+# ## use variable selection method
+# iBoot = 100
+# mTrain = matrix(NA, nrow = length(cvTopGenes), ncol = iBoot)
+# mTest = matrix(NA, nrow = length(cvTopGenes), ncol = iBoot)
+# 
+# for(o in 1:iBoot){
+#   dfData.train = as.data.frame(mDat.sub.train)
+#   dfData.train = dfData.train[,colnames(dfData.train) %in% cvTopGenes]
+#   dfData.train$fGroups = dfSamples.train$fGroups.2
+#   # create a test set on a percentage the data
+#   test = sample(1:nrow(dfData.train), size =nrow(dfData.train) * 0.30, replace = F)
+#   dfData.test = dfData.train[test,]
+#   dfData.train = dfData.train[-test,]
+#   
+#   # fit model
+#   reg = regsubsets(fGroups ~ ., data=dfData.train, nvmax = length(cvTopGenes), method='forward')
+#   # test for validation errors in the test set
+#   ivCV.train = rep(NA, length=length(cvTopGenes))
+#   ivCV.test = rep(NA, length=length(cvTopGenes))
+#   for (i in 1:length(cvTopGenes)){
+#     # get the genes in each subset
+#     n = names(coef(reg, i))[-1]
+#     n = c(n, 'fGroups')
+#     dfDat.train = dfData.train[,colnames(dfData.train) %in% n]
+#     dfDat.test = dfData.test[,colnames(dfData.test) %in% n]
+#     # fit the lda model on training dataset
+#     fit.lda = lda(fGroups ~ ., data=dfDat.train)
+#     # test error rate on test dataset
+#     p = predict(fit.lda, newdata=dfDat.test)
+#     # calculate test error 
+#     ivCV.test[i] = mean(p$class != dfDat.test$fGroups)  
+#     # calculate training error
+#     p = predict(fit.lda, newdata=dfDat.train)
+#     # calculate error
+#     ivCV.train[i] = mean(p$class != dfDat.train$fGroups)  
+#   }
+#   mTrain[,o] = ivCV.train
+#   mTest[,o] = ivCV.test
+#   print(o)
+# }
+# # make plots
+# mTrain = t(mTrain)
+# par(mfrow=c(1,2), mar=c(4,3,1,1))
+# boxplot(mTrain, main='Training Set', xlab='No. of variables', ylab='Error rate', ylim=c(0.1, 0.23))
+# lines(1:ncol(mTrain), colMeans(mTrain), col='red', lwd=2)
+# 
+# mTest = t(mTest)
+# boxplot(mTest, main='Test Set', xlab='No. of variables', ylab='Error rate', ylim=c(0.1, 0.23))
+# lines(1:ncol(mTest), colMeans(mTest), col='red', lwd=2)
+# y = colMeans(mTest)
+# abline(h = min(y), lty=2)
+# # calculate standard error for minimum mean test error column
+# i = which.min(y)
+# x = mTest[,i]
+# se = sd(x)/sqrt(length(x))
+# abline(h = mean(x)+se+se, lty=2, col=2)
+# abline(h = mean(x)-se-se, lty=2, col=2)
+# abline(h = mean(x)+sd(x), lty=2, col='blue')
+# abline(h = mean(x)-sd(x), lty=2, col='blue')
+# 
+# par(p.old)
+# # plot together
+# tr = colMeans(mTrain)
+# te = colMeans(mTest)
+# 
+# m = cbind(tr, te)
+# matplot(1:nrow(m), m, type='b', pch=20, lty = 1, lwd=2, col=1:2, xaxt='n')
+# legend('bottomleft', legend = colnames(m), fill=1:2)
+# axis(1, at = 1:nrow(m), las=2)
+# 
+# ## choose the best model after refitting on the full training data set
+# ## choose which model is the best?
+# i = 3
+# # refit subset using i number of genes on all data
+# rm(list = c('dfData.train', 'dfData.test'))
+# dfData = as.data.frame(mDat.sub.train)
+# dfData = dfData[,colnames(dfData) %in% cvTopGenes]
+# dfData$fGroups = dfSamples.train$fGroups.2
+# reg = regsubsets(fGroups ~ ., data=dfData, nvmax = length(cvTopGenes), method='exhaustive', really.big=T)
+# 
+# # choose these variables
+# cvTopGenes.step.3 = cvTopGenes
+# cvTopGenes = names(coef(reg, i))[-1]
+# rm(list = c('dfData', 'dfDat.test', 'dfDat.train'))
+# 
+# ######### cross validation with ROC
+# dfData.train = as.data.frame(mDat.sub.train)
+# dfData.train = dfData.train[,colnames(dfData.train) %in% cvTopGenes]
+# 
+# dfData.test = as.data.frame(mDat.sub.test)
+# dfData.test = dfData.test[,colnames(dfData.test) %in% cvTopGenes]
+# 
+# oCV = CCrossValidation.LDA(test.dat = dfData.test, train.dat = dfData.train, test.groups = dfSamples.test$fGroups.2,
+#                            train.groups = dfSamples.train$fGroups.2, level.predict = 'ATB', boot.num = 500)
+# 
+# plot.cv.performance(oCV)
 
 
-################################################################################
-#### Pathway comparisons
-source('../CGraphClust/CGraphClust.R')
-library(igraph)
-library(org.Hs.eg.db)
-library(reactome.db)
 
-i = which(dfSamples.ns$Illness1 %in% c('LTBI', 'ATB'))
-fGroups = as.character(dfSamples.ns$Illness1[i])
-mDat.2 = mDat.ns[i, ]
-fGroups = factor(fGroups)
-
-# get names of DE genes from t and wilc tests
-t = names(p.t.adj[p.t.adj < 0.001])
-w = names(p.w.adj[p.w.adj < 0.001])
-n = unique(c(w, t))
-f1 = n %in% t
-f2 = n %in% w
-f = f1 & f2
-n2 = n[f]
-mDat.2 = mDat.2[,n2]
-
-# replace gene names i.e. illumina ids by enterez ids
-c = colnames(mDat.2)
-c2 = as.character(dfAnnotation[c,'Enterez_ID'])
-# which names are NA
-i = which(is.na(c2))
-mDat.2 = mDat.2[,-i]
-
-c = colnames(mDat.2)
-c2 = as.character(dfAnnotation[c,'Enterez_ID'])
-i = !duplicated(c2)
-mDat.2 = mDat.2[,i]
-
-c = colnames(mDat.2)
-c2 = as.character(dfAnnotation[c,'Enterez_ID'])
-colnames(mDat.2) = c2
-
-# create data frame for graph
-dfGraph = AnnotationDbi::select(reactome.db, colnames(mDat.2), 'REACTOMEID', 'ENTREZID')
-dfGraph = na.omit(dfGraph)
-
-# select genes that have a reactome term attached
-n = unique(dfGraph$ENTREZID)
-mCounts = mDat.2[,n]
-mCor = cor(mCounts)
-
-hist(mCor, prob=T)
-
-# create the graph
-oGr = CGraphClust(dfGraph, abs(mCor), iCorCut = 0.7)#, iCorCut = 0.7)
-
-# order the count matrix before making heatmaps
-rownames(mCounts) = fGroups
-mCounts = mCounts[order(fGroups),]
-fGroups = fGroups[order(fGroups)]
-
-plot.mean.expressions(oGr, t(mCounts), fGroups, legend.pos = 'bottomright')
-plot.heatmap.means(oGr, t(mCounts))
-plot.heatmap(oGr, t(mCounts))
-
-ig = getFinalGraph(oGr)
-plot(ig, vertex.label=NA, vertex.size=2, layout=layout.fruchterman.reingold, vertex.frame.color=NA)
-
-df = getClusterMapping(oGr)
-colnames(df) = c('gene', 'cluster')
-df = df[order(df$cluster),]
-
-write.csv(df, 'Data_results/long_all_data_test_03_pathway.csv')

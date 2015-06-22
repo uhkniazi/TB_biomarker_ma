@@ -67,3 +67,5 @@ small changes.
 - Using the CCrossValidation.LDA class for nested cross validation and ROC curves.  
 - Added some pathway analysis at the end with LTBI and ATB comparisons.  
 
+# long_all_data_test_03_ATB_LTBI.R
+Similar to previous script but only ATB vs LTBI comparison.
