@@ -69,3 +69,7 @@ small changes.
 
 # long_all_data_test_03_ATB_LTBI.R
 Similar to previous script but only ATB vs LTBI comparison.
+
+# PCR_data_CV.R
+ROC Curves with cross validation for the PCR data using CV class.
+
