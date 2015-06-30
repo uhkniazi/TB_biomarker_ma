@@ -218,7 +218,7 @@ for (i in 3:6){
   print(dfAnnotation[cvTopGenes.sub,])
 }
 
-cvTopGenes.sub = 'ILMN_1756953'
+cvTopGenes.sub = # insert gene name
 par(p.old)
 dfData.train = as.data.frame(mDat.sub.train)
 dfData.train = data.frame(dfData.train[,colnames(dfData.train) %in% cvTopGenes.sub])

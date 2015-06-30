@@ -73,3 +73,6 @@ Similar to previous script but only ATB vs LTBI comparison.
 # PCR_data_CV.R
 ROC Curves with cross validation for the PCR data using CV class.
 
+# long_selected_genes_ATB_LTBI.R
+testing decorrelated genes agasint a gene of interest from the set of 30 genes selected in long_all_data_test_03_ATB_LTBI.R
+
