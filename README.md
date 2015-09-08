@@ -76,3 +76,6 @@ ROC Curves with cross validation for the PCR data using CV class.
 # long_selected_genes_ATB_LTBI.R
 testing decorrelated genes agasint a gene of interest from the set of 30 genes selected in long_all_data_test_03_ATB_LTBI.R
 
+# long_paper_supp_figure.R
+Using the data from the script long_all_data_test_03.R and using the CCrossValidation.R library the figures are generated for the
+paper.
