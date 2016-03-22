@@ -56,6 +56,25 @@ i = grepl('LTBI', lData$groups, ignore.case=T)
 lData$groups[!i] = 'OD'
 lData$groups = factor(lData$groups, levels = c('OD', 'LTBI'))
 
+## remove sarcoidosis group only
+i = grep('sarcoid', lData$groups, ignore.case = T)
+lData$groups = lData$groups[-i]
+lData$matrix = lData$matrix[-i,]
+
+i = grepl('LTBI', lData$groups, ignore.case=T)
+lData$groups[!i] = 'OD'
+lData$groups = factor(lData$groups, levels = c('OD', 'LTBI'))
+
+## make od=atb and healthy control group
+## remove sarcoidosis group only
+i = grep('Ctrl|ATB|LTBI', lData$groups, ignore.case = T)
+lData$groups = lData$groups[i]
+lData$matrix = lData$matrix[i,]
+
+i = grepl('LTBI', lData$groups, ignore.case=T)
+lData$groups[!i] = 'OD'
+lData$groups = factor(lData$groups, levels = c('OD', 'LTBI'))
+
 ## get the components from the list
 # test set index
 test = sample(1:nrow(lData$matrix), 0.30 * nrow(lData$matrix), replace = F)
@@ -113,7 +132,7 @@ for (i in 1:6){
 ## 10 fold nested cross validation with various variable combinations
 par(mfrow=c(2,2))
 # try models of various sizes with CV
-for (i in 1:8){
+for (i in 1:12){
   cvTopGenes.sub = CVariableSelection.ReduceModel.getMinModel(oVar.sub, i)
   dfData.train = as.data.frame(mDat.train)
   dfData.train = data.frame(dfData.train[,colnames(dfData.train) %in% cvTopGenes.sub])
